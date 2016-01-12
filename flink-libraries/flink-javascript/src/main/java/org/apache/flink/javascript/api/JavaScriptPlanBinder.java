@@ -1,10 +1,26 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one or more contributor license agreements. See the NOTICE
+ * file distributed with this work for additional information regarding copyright ownership. The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the "License"); you may not use this file except in compliance with the
+ * License. You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software distributed under the License is distributed on
+ * an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. See the License for the
+ * specific language governing permissions and limitations under the License.
+ */
 package org.apache.flink.javascript.api;
 
+import java.io.File;
 import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.util.Arrays;
 import java.util.HashMap;
+import java.util.StringJoiner;
+
 import org.apache.flink.api.java.DataSet;
 import org.apache.flink.api.java.ExecutionEnvironment;
 import org.apache.flink.api.java.LocalEnvironment;
@@ -28,9 +44,11 @@ import org.apache.flink.configuration.GlobalConfiguration;
 import org.apache.flink.core.fs.FileSystem;
 import org.apache.flink.core.fs.Path;
 import org.apache.flink.javascript.api.JavaScriptOperationInfo.DatasizeHint;
+
 import static org.apache.flink.javascript.api.JavaScriptOperationInfo.DatasizeHint.HUGE;
 import static org.apache.flink.javascript.api.JavaScriptOperationInfo.DatasizeHint.NONE;
 import static org.apache.flink.javascript.api.JavaScriptOperationInfo.DatasizeHint.TINY;
+
 import org.apache.flink.javascript.api.JavaScriptOperationInfo.ProjectionEntry;
 import org.apache.flink.javascript.api.functions.JavaScriptCoGroup;
 import org.apache.flink.javascript.api.functions.JavaScriptCombineIdentity;
@@ -50,15 +68,15 @@ public class JavaScriptPlanBinder {
 	public static final String ARGUMENT_JAVASCRIPT_ENGINE = "jjs";
 	
 	public static final String FLINK_JAVASCRIPT_DC_ID = "flink";
-	public static final String FLINK_JAVASCRIPT_PLAN_NAME = "/plan.js";
+	public static final String FLINK_JAVASCRIPT_PLAN_NAME = File.separator + "plan.js";
 
 	public static final String FLINK_JAVASCRIPT_BINARY_KEY = "nashorn.binary.jjs";
 	public static final String PLANBINDER_CONFIG_BCVAR_COUNT = "PLANBINDER_BCVAR_COUNT";
 	public static final String PLANBINDER_CONFIG_BCVAR_NAME_PREFIX = "PLANBINDER_BCVAR_";
 	public static String FLINK_JAVASCRIPT_BINARY_PATH = GlobalConfiguration.getString(FLINK_JAVASCRIPT_BINARY_KEY, "jjs");
 
-	private static final String FLINK_JAVASCRIPT_FILE_PATH = System.getProperty("java.io.tmpdir") + "/flink_plan";
-	private static final String FLINK_JAVASCRIPT_REL_LOCAL_PATH = "/resources/javascript";
+	private static final String FLINK_JAVASCRIPT_FILE_PATH = System.getProperty("java.io.tmpdir") + File.separator + "flink_plan";
+	private static final String FLINK_JAVASCRIPT_REL_LOCAL_PATH = File.separator + "resources" + File.separator + "javascript";
 	private static final String FLINK_DIR = System.getenv("FLINK_ROOT_DIR");
 	private static String FULL_PATH;
 
@@ -67,9 +85,9 @@ public class JavaScriptPlanBinder {
 	private Process process;
 
 	private static String FLINK_HDFS_PATH = "hdfs:/tmp";
-	public static final String FLINK_TMP_DATA_DIR = System.getProperty("java.io.tmpdir") + "/flink_data";
+	public static final String FLINK_TMP_DATA_DIR = System.getProperty("java.io.tmpdir") + File.separator + "flink_data";
 
-	public static boolean DEBUG = false;
+	public static boolean DEBUG = true;
 
 	private HashMap<Integer, Object> sets = new HashMap();
 	public ExecutionEnvironment env;
@@ -78,28 +96,31 @@ public class JavaScriptPlanBinder {
 	public static final int MAPPED_FILE_SIZE = 1024 * 1024 * 64;
 
 	/**
-	 * Entry point for the execution of a javascript plan.
+	 * Entry point for the execution of a JavaScript plan.
 	 *
 	 * @param args planPath[ package1[ packageX[ - parameter1[ parameterX]]]]
 	 * @throws Exception
 	 */
 	public static void main(String[] args) throws Exception {
-		/*if (args.length != 1) {
-			System.out.println("Usage: ./bin/jsflink.sh <pathToScript>[ <pathToPackage1>[ <pathToPackageX]][ - <parameter1>[ <parameterX>]]");
+		if (args.length < 2) {
+			System.out.println("Usage: ./bin/jsflink.sh <pathToScript>");
 			return;
-		}*/
-		//args.forEach( arg -> System.out.println( arg ));
+		}
+		System.out.println(FLINK_JAVASCRIPT_FILE_PATH);
 		JavaScriptPlanBinder binder = new JavaScriptPlanBinder();
 		binder.runPlan(Arrays.copyOfRange(args, 1, args.length));
 	}
 
 	public JavaScriptPlanBinder() throws IOException {
 		FLINK_JAVASCRIPT_BINARY_PATH = GlobalConfiguration.getString(FLINK_JAVASCRIPT_BINARY_KEY, "jjs");
-		System.out.println(FLINK_JAVASCRIPT_BINARY_PATH);
+		StringJoiner scriptPath = new StringJoiner(File.separator);
+		scriptPath.add("src").add("main").add("javascript").add("org").add("apache").add("flink").add("javascript").add("api");
+		
 		FULL_PATH = FLINK_DIR != null
 				? FLINK_DIR + FLINK_JAVASCRIPT_REL_LOCAL_PATH //command-line
 				: FileSystem.getLocalFileSystem().getWorkingDirectory().toString() //testing
-				+ "/src/main/javascript/org/apache/flink/javascript/api";
+				+ File.separator + scriptPath.toString();
+		System.out.println(FULL_PATH);
 	}
 
 	private void runPlan(String[] args) throws Exception {
@@ -118,7 +139,7 @@ public class JavaScriptPlanBinder {
 			receivePlan();
 
 			if (env instanceof LocalEnvironment) {
-				FLINK_HDFS_PATH = "file:" + System.getProperty("java.io.tmpdir") + "/flink";
+				FLINK_HDFS_PATH = "file:" + System.getProperty("java.io.tmpdir") + File.separator + "flink";
 			}
 
 			distributeFiles(env);
@@ -155,7 +176,7 @@ public class JavaScriptPlanBinder {
 	}
 
 	private static void clearPath(String path) throws IOException, URISyntaxException {
-		FileSystem fs = FileSystem.get(new URI(path));
+		FileSystem fs = FileSystem.get(new URI(URLEncoder.encode(path,"UTF-8")));
 		if (fs.exists(new Path(path))) {
 			fs.delete(new Path(path), true);
 		}
@@ -166,7 +187,7 @@ public class JavaScriptPlanBinder {
 			path = path.substring(0, path.length() - 1);
 		}
 		String identifier = name == null ? path.substring(path.lastIndexOf("/")) : name;
-		String tmpFilePath = FLINK_JAVASCRIPT_FILE_PATH + "/" + identifier;
+		String tmpFilePath = FLINK_JAVASCRIPT_FILE_PATH + File.separator + identifier;
 		clearPath(tmpFilePath);
 		Path p = new Path(path);
 		FileCache.copy(p.makeQualified(FileSystem.get(p.toUri())), new Path(tmpFilePath), true);
@@ -174,7 +195,7 @@ public class JavaScriptPlanBinder {
 
 	private static void distributeFiles(ExecutionEnvironment env) throws IOException, URISyntaxException {
 		clearPath(FLINK_HDFS_PATH);
-		FileCache.copy(new Path(FLINK_JAVASCRIPT_FILE_PATH), new Path(FLINK_HDFS_PATH), true);
+		//FileCache.copy(new Path(FLINK_JAVASCRIPT_FILE_PATH), new Path(FLINK_HDFS_PATH), true);
 		env.registerCachedFile(FLINK_HDFS_PATH, FLINK_JAVASCRIPT_DC_ID);
 		clearPath(FLINK_JAVASCRIPT_FILE_PATH);
 	}
@@ -193,7 +214,9 @@ public class JavaScriptPlanBinder {
 		} catch (IOException ex) {
 			throw new RuntimeException(javascriptBinaryPath + " does not point to a valid javascript binary.");
 		}
-		process = Runtime.getRuntime().exec(javascriptBinaryPath + " -B " + FLINK_JAVASCRIPT_FILE_PATH + FLINK_JAVASCRIPT_PLAN_NAME + arguments.toString());
+		process = Runtime.getRuntime().exec(javascriptBinaryPath +  arguments.toString() + " " + FLINK_JAVASCRIPT_FILE_PATH + FLINK_JAVASCRIPT_PLAN_NAME);
+
+		//process = Runtime.getRuntime().exec(javascriptBinaryPath + " " + FLINK_JAVASCRIPT_FILE_PATH + FLINK_JAVASCRIPT_PLAN_NAME + arguments.toString());
 
 		new StreamPrinter(process.getInputStream()).start();
 		new StreamPrinter(process.getErrorStream()).start();
@@ -215,14 +238,14 @@ public class JavaScriptPlanBinder {
 		}
 
 		process.getOutputStream().write("plan\n".getBytes());
-		process.getOutputStream().write((FLINK_TMP_DATA_DIR + "/output\n").getBytes());
+		process.getOutputStream().write((FLINK_TMP_DATA_DIR + File.separator + "output").getBytes());
 		process.getOutputStream().flush();
 	}
 
 	private void close() {
 		try { //prevent throwing exception so that previous exceptions aren't hidden.
 			if (!DEBUG) {
-				FileSystem hdfs = FileSystem.get(new URI(FLINK_HDFS_PATH));
+				FileSystem hdfs = FileSystem.get(new URI(URLEncoder.encode(FLINK_HDFS_PATH,"UTF-8")));
 				hdfs.delete(new Path(FLINK_HDFS_PATH), true);
 			}
 
