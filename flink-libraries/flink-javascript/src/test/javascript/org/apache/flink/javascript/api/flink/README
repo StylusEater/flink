@@ -1,0 +1,32 @@
+INTRODUCTION
+============
+
+Thank you for your interest in [flink-javascript](http://github.com/styluseater/flink-javascript).
+
+TESTING
+-------
+
+In order to run tests you will need to have the [NodeJS](https://nodejs.org) toolkit installed. Then install
+ the [Karma](https://www.npmjs.com/package/karma) test runner and the [Jasmine](http://jasmine.github.io)
+ JavaScript testing framework. 
+
+Once you have these tools installed you will want to create karma.conf.js using 
+ the karma.conf.js.example file. Of particular note you will want to adjust base,
+ baseSRC and baseTESTS to match the locations of your project, the location of 
+ your source files and your tests respectively. You may also wish to build out
+ your own karam.conf.js file using the command:
+ 
+ > karma init karma.conf.js
+ 
+ and following the prompts. 
+ 
+ When you're done configuring karma you will want to run it using the command:
+ 
+ > karma start
+ 
+ and watch for failed tests in the console. Enjoy!
+ 
+ADDITIONAL LINKS
+----------------
+[Introduction to Jasmine 2.4 Testing](http://jasmine.github.io/2.4/introduction.html)
+[Introduction to Karma](http://www.methodsandtools.com/tools/karma.php)

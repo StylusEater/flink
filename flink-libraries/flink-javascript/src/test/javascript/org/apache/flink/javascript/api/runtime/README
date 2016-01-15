@@ -1,0 +1,7 @@
+INTRODUCTION
+============
+
+Thank you for your interest in [flink-javascript](http://github.com/styluseater/flink-javascript).
+
+The scripts in this directory are used to perform runtime tests on a working Apache Flink
+installation where you wish to use JavaScript.
